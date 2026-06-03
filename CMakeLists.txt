@@ -26,7 +26,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(TOOLCHAIN_PREFIX "riscv-none-embed-")
 
 # Project name
-project(LED_Blink C ASM)
+project(ch32v307_bare_metal_template C ASM)
 
 # CH32V307 chip definition
 add_compile_definitions(CH32V30x_D8C)
