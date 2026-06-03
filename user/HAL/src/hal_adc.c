@@ -9,6 +9,8 @@
 
 static ADC_TypeDef * const adc_port_map[] = { ADC1, ADC2 };
 
+static const uint32_t adc_clk_map[] = { RCC_APB2Periph_ADC1, RCC_APB2Periph_ADC2 };
+
 int hal_adc_init(const hal_adc_config_t *config)
 {
     ADC_InitTypeDef adc_init;
@@ -19,7 +21,7 @@ int hal_adc_init(const hal_adc_config_t *config)
     }
 
     /* 使能时钟 */
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
+    RCC_APB2PeriphClockCmd(adc_clk_map[config->id], ENABLE);
 
     /* 配置ADC */
     adc_init.ADC_Mode = ADC_Mode_Independent;

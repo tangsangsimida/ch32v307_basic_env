@@ -4,9 +4,11 @@
  */
 
 #include "hal_can.h"
+#include "hal_system.h"
 #include "ch32v30x.h"
 #include <stddef.h>
 
+static CAN_TypeDef * const can_port_map[] = { CAN1 };
 static void (*can_callback)(hal_can_msg_t *msg) = NULL;
 
 int hal_can_init(const hal_can_config_t *config)
@@ -49,7 +51,7 @@ int hal_can_init(const hal_can_config_t *config)
     can_init.CAN_BS2 = CAN_BS2_2tq;
     can_init.CAN_Prescaler = SystemCoreClock / config->baudrate / 12;
 
-    CAN_Init(CAN1, &can_init);
+    CAN_Init(can_port_map[config->id], &can_init);
 
     /* 配置过滤器 */
     filter_init.CAN_FilterNumber = 0;
@@ -73,7 +75,7 @@ int hal_can_deinit(hal_can_id_t id)
         return -1;
     }
 
-    CAN_DeInit(CAN1);
+    CAN_DeInit(can_port_map[id]);
     return 0;
 }
 
@@ -107,18 +109,16 @@ int hal_can_transmit(hal_can_id_t id, const hal_can_msg_t *msg, uint32_t timeout
     }
 
     /* 发送 */
-    uint8_t mailbox = CAN_Transmit(CAN1, &tx_msg);
+    uint8_t mailbox = CAN_Transmit(can_port_map[id], &tx_msg);
 
     /* 等待发送完成 */
-    uint32_t timeout = timeout_ms;
-    while (CAN_TransmitStatus(CAN1, mailbox) != CAN_TxStatus_Ok)
+    uint32_t start_tick = hal_system_get_tick();
+    while (CAN_TransmitStatus(can_port_map[id], mailbox) != CAN_TxStatus_Ok)
     {
-        if (timeout == 0)
+        if ((hal_system_get_tick() - start_tick) >= timeout_ms)
         {
             return -1;
         }
-        hal_delay_ms(1);
-        timeout--;
     }
 
     return 0;
@@ -134,19 +134,17 @@ int hal_can_receive(hal_can_id_t id, hal_can_msg_t *msg, uint32_t timeout_ms)
     }
 
     /* 等待接收 */
-    uint32_t timeout = timeout_ms;
-    while (CAN_MessagePending(CAN1, CAN_FIFO0) == 0)
+    uint32_t start_tick = hal_system_get_tick();
+    while (CAN_MessagePending(can_port_map[id], CAN_FIFO0) == 0)
     {
-        if (timeout == 0)
+        if ((hal_system_get_tick() - start_tick) >= timeout_ms)
         {
             return -1;
         }
-        hal_delay_ms(1);
-        timeout--;
     }
 
     /* 接收消息 */
-    CAN_Receive(CAN1, CAN_FIFO0, &rx_msg);
+    CAN_Receive(can_port_map[id], CAN_FIFO0, &rx_msg);
 
     /* 转换消息 */
     if (rx_msg.IDE == CAN_Id_Extended)

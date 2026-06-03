@@ -4,10 +4,36 @@
  */
 
 #include "hal_spi.h"
+#include "hal_system.h"
 #include "ch32v30x.h"
 #include <stddef.h>
 
 static SPI_TypeDef * const spi_port_map[] = { SPI1, SPI2 };
+
+/**
+ * @brief 根据时钟频率计算预分频值
+ */
+static uint16_t spi_calc_prescaler(uint32_t clock_hz)
+{
+    uint32_t pclk = SystemCoreClock;
+
+    if (clock_hz >= pclk / 2)
+        return SPI_BaudRatePrescaler_2;
+    if (clock_hz >= pclk / 4)
+        return SPI_BaudRatePrescaler_4;
+    if (clock_hz >= pclk / 8)
+        return SPI_BaudRatePrescaler_8;
+    if (clock_hz >= pclk / 16)
+        return SPI_BaudRatePrescaler_16;
+    if (clock_hz >= pclk / 32)
+        return SPI_BaudRatePrescaler_32;
+    if (clock_hz >= pclk / 64)
+        return SPI_BaudRatePrescaler_64;
+    if (clock_hz >= pclk / 128)
+        return SPI_BaudRatePrescaler_128;
+
+    return SPI_BaudRatePrescaler_256;
+}
 
 int hal_spi_init(const hal_spi_config_t *config)
 {
@@ -35,7 +61,7 @@ int hal_spi_init(const hal_spi_config_t *config)
     spi_init.SPI_CPOL = (config->cpol == HAL_SPI_CPOL_HIGH) ? SPI_CPOL_High : SPI_CPOL_Low;
     spi_init.SPI_CPHA = (config->cpha == HAL_SPI_CPHA_2EDGE) ? SPI_CPHA_2Edge : SPI_CPHA_1Edge;
     spi_init.SPI_NSS = SPI_NSS_Soft;
-    spi_init.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_256;
+    spi_init.SPI_BaudRatePrescaler = spi_calc_prescaler(config->clock_hz);
     spi_init.SPI_FirstBit = SPI_FirstBit_MSB;
     spi_init.SPI_CRCPolynomial = 7;
 
@@ -63,13 +89,31 @@ int hal_spi_transmit(hal_spi_id_t id, const uint8_t *data, size_t len, uint32_t 
         return -1;
     }
 
+    uint32_t start_tick = hal_system_get_tick();
+
     for (size_t i = 0; i < len; i++)
     {
+        /* 等待发送缓冲区空 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_TXE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
         SPI_I2S_SendData(spi_port_map[id], data[i]);
+
+        /* 等待接收完成 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_RXNE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
+        /* 读取数据清空缓冲区 */
         SPI_I2S_ReceiveData(spi_port_map[id]);
     }
 
@@ -83,13 +127,30 @@ int hal_spi_receive(hal_spi_id_t id, uint8_t *data, size_t len, uint32_t timeout
         return -1;
     }
 
+    uint32_t start_tick = hal_system_get_tick();
+
     for (size_t i = 0; i < len; i++)
     {
+        /* 等待发送缓冲区空 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_TXE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
         SPI_I2S_SendData(spi_port_map[id], 0xFF);
+
+        /* 等待接收完成 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_RXNE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
         data[i] = (uint8_t)SPI_I2S_ReceiveData(spi_port_map[id]);
     }
 
@@ -103,13 +164,30 @@ int hal_spi_transmit_receive(hal_spi_id_t id, const uint8_t *tx_data, uint8_t *r
         return -1;
     }
 
+    uint32_t start_tick = hal_system_get_tick();
+
     for (size_t i = 0; i < len; i++)
     {
+        /* 等待发送缓冲区空 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_TXE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
         SPI_I2S_SendData(spi_port_map[id], tx_data[i]);
+
+        /* 等待接收完成 */
         while (SPI_I2S_GetFlagStatus(spi_port_map[id], SPI_I2S_FLAG_RXNE) == RESET)
-            ;
+        {
+            if ((hal_system_get_tick() - start_tick) >= timeout_ms)
+            {
+                return (int)i;
+            }
+        }
+
         rx_data[i] = (uint8_t)SPI_I2S_ReceiveData(spi_port_map[id]);
     }
 
