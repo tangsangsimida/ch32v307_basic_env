@@ -9,29 +9,29 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# C standard
+# C语言标准
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
-# Default build type
+# 默认构建类型
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
-# Export compile commands for clangd
+# 导出编译命令（用于clangd）
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-# Toolchain prefix
+# 工具链前缀
 set(TOOLCHAIN_PREFIX "riscv-none-embed-")
 
-# Project name
+# 项目名称
 project(ch32v307_bare_metal_template C ASM)
 
-# CH32V307 chip definition
+# CH32V307芯片定义
 add_compile_definitions(CH32V30x_D8C)
 
-# Common compile flags
+# 通用编译选项
 add_compile_options(
     -Wall
     -fdata-sections
@@ -39,57 +39,57 @@ add_compile_options(
     -specs=nano.specs
 )
 
-# Optimization flags
+# 优化选项
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-Og -g -gdwarf-2)
 else()
     add_compile_options(-Os)
 endif()
 
-# Linker script
+# 链接脚本
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/Ld/Link.ld)
 
-# Find toolchain tools (for post-build commands)
+# 查找工具链工具（用于构建后命令）
 find_program(CMAKE_OBJCOPY ${TOOLCHAIN_PREFIX}objcopy)
 find_program(CMAKE_SIZE ${TOOLCHAIN_PREFIX}size)
 
-# Add subdirectories
+# 添加子目录
 add_subdirectory(lib)
 add_subdirectory(user)
 
-# Create executable
+# 创建可执行文件
 add_executable(${PROJECT_NAME}.elf
     $<TARGET_OBJECTS:ch32v30x_peripheral>
     $<TARGET_OBJECTS:ch32v30x_startup>
     $<TARGET_OBJECTS:user_objects>
 )
 
-# Linker flags
+# 链接选项
 target_link_options(${PROJECT_NAME}.elf PRIVATE
     -T${LINKER_SCRIPT}
     -Wl,-Map=${PROJECT_NAME}.map,--cref
     -Wl,--gc-sections
 )
 
-# Link libraries (CMake way)
+# 链接库（CMake标准方式）
 target_link_libraries(${PROJECT_NAME}.elf PRIVATE c m nosys)
 
-# Post-build: generate HEX and BIN files
+# 构建后：生成HEX和BIN文件
 add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}.elf> ${PROJECT_NAME}.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary -S $<TARGET_FILE:${PROJECT_NAME}.elf> ${PROJECT_NAME}.bin
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}.elf>
-    COMMENT "Generating HEX and BIN files..."
+    COMMENT "正在生成HEX和BIN文件..."
 )
 
-# Additional clean files
+# 额外的清理文件
 set_directory_properties(PROPERTIES
     ADDITIONAL_MAKE_CLEAN_FILES "${PROJECT_NAME}.hex;${PROJECT_NAME}.bin;${PROJECT_NAME}.map"
 )
 
-# Flash target
+# 烧录目标
 add_custom_target(flash
     COMMAND wch-isp flash -a 0x00000000 ${PROJECT_NAME}.bin
     DEPENDS ${PROJECT_NAME}.elf
-    COMMENT "Flashing to CH32V307..."
+    COMMENT "正在烧录到CH32V307..."
 )

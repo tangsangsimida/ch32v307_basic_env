@@ -1,13 +1,13 @@
-# CMake Toolchain File for CH32V307 (RISC-V)
-# Toolchain: riscv-none-embed-gcc (MounRiver Studio)
+# CH32V307 RISC-V 工具链配置文件
+# 工具链: riscv-none-embed-gcc (MounRiver Studio)
 
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR riscv)
 
-# Toolchain path
+# 工具链前缀
 set(TOOLCHAIN_PREFIX "riscv-none-embed-")
 
-# Compiler settings
+# 编译器设置
 set(CMAKE_C_COMPILER ${TOOLCHAIN_PREFIX}gcc)
 set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PREFIX}g++)
 set(CMAKE_ASM_COMPILER ${TOOLCHAIN_PREFIX}gcc)
@@ -16,11 +16,11 @@ set(CMAKE_OBJCOPY ${TOOLCHAIN_PREFIX}objcopy)
 set(CMAKE_OBJDUMP ${TOOLCHAIN_PREFIX}objdump)
 set(CMAKE_SIZE ${TOOLCHAIN_PREFIX}size)
 
-# Skip compiler test
+# 跳过编译器测试
 set(CMAKE_C_COMPILER_WORKS 1)
 set(CMAKE_CXX_COMPILER_WORKS 1)
 
-# MCU architecture flags
+# MCU架构标志
 set(MCU_FLAGS "-march=rv32imac_zicsr_zifencei -mabi=ilp32")
 
 set(CMAKE_C_FLAGS_INIT "${MCU_FLAGS}")
@@ -28,7 +28,7 @@ set(CMAKE_CXX_FLAGS_INIT "${MCU_FLAGS}")
 set(CMAKE_ASM_FLAGS_INIT "${MCU_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${MCU_FLAGS} -nostartfiles -specs=nano.specs")
 
-# Don't use standard libraries
+# 不使用标准库
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
