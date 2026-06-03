@@ -8,6 +8,9 @@
 #   +-- Application/    (应用层 - 业务逻辑)
 #   |   +-- inc/
 #   |   +-- src/
+#   +-- HAL/            (硬件抽象层 - 芯片无关接口)
+#   |   +-- inc/
+#   |   +-- src/
 #   +-- BSP/            (板级支持包 - 系统初始化和配置)
 #   |   +-- inc/
 #   |   +-- src/
@@ -28,6 +31,7 @@
 # ---------------------------------------------------------------------------
 file(GLOB_RECURSE USER_Include_Dirs_ABS
     "${CMAKE_CURRENT_SOURCE_DIR}/Application/inc/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/HAL/inc/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/BSP/inc/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/Peripherals/inc/*.h"
 )
@@ -46,6 +50,10 @@ file(GLOB_RECURSE USER_Application_Src
     "${CMAKE_CURRENT_SOURCE_DIR}/Application/src/*.c"
 )
 
+file(GLOB_RECURSE USER_HAL_Src
+    "${CMAKE_CURRENT_SOURCE_DIR}/HAL/src/*.c"
+)
+
 file(GLOB_RECURSE USER_BSP_Src
     "${CMAKE_CURRENT_SOURCE_DIR}/BSP/src/*.c"
 )
@@ -56,6 +64,7 @@ file(GLOB_RECURSE USER_Peripherals_Src
 
 set(USER_Sources
     ${USER_Application_Src}
+    ${USER_HAL_Src}
     ${USER_BSP_Src}
     ${USER_Peripherals_Src}
 )
