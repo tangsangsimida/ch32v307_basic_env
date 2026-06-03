@@ -23,11 +23,13 @@ add_library(ch32v30x_peripheral OBJECT
 add_library(ch32v30x_startup OBJECT ${STARTUP_SRC})
 
 # Public include directories (propagated to consumers)
-# Note: user/ is included because ch32v30x.h includes
+# Note: user/ subdirectories are included because ch32v30x.h includes
 #   system_ch32v30x.h (line 201) and ch32v30x_conf.h (line 6638)
 target_include_directories(ch32v30x_peripheral PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/Peripheral/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/Core
     ${CMAKE_CURRENT_SOURCE_DIR}/Debug
-    ${CMAKE_SOURCE_DIR}/user
+    ${CMAKE_SOURCE_DIR}/user/BSP/inc
+    ${CMAKE_SOURCE_DIR}/user/Peripherals/inc
+    ${CMAKE_SOURCE_DIR}/user/Application/inc
 )

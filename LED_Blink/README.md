@@ -25,12 +25,16 @@ LED_Blink/
 │   ├── Debug/                  # 调试和延时函数
 │   └── Startup/                # 启动汇编文件
 ├── user/                       # 用户应用代码
-│   ├── CMakeLists.txt          # 用户代码构建脚本
-│   ├── main.c                  # 主程序
-│   ├── ch32v30x_it.c           # 中断处理
-│   ├── ch32v30x_conf.h         # 外设配置
-│   ├── system_ch32v30x.c       # 系统初始化
-│   └── system_ch32v30x.h       # 系统头文件
+│   ├── CMakeLists.txt          # 自动收集源文件和头文件
+│   ├── Application/            # 应用层（业务逻辑）
+│   │   ├── inc/                # 应用头文件
+│   │   └── src/                # 应用源文件（main.c）
+│   ├── BSP/                    # 板级支持包
+│   │   ├── inc/                # BSP头文件（system_ch32v30x.h, ch32v30x_conf.h）
+│   │   └── src/                # BSP源文件（system_ch32v30x.c）
+│   └── Peripherals/            # 驱动层
+│       ├── inc/                # 驱动头文件（ch32v30x_it.h）
+│       └── src/                # 驱动源文件（ch32v30x_it.c）
 └── README.md
 ```
 
