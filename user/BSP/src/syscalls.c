@@ -63,6 +63,29 @@ int _read(int file, char *ptr, int len)
 }
 
 /**
+ * @brief 获取进程ID（空实现）
+ *
+ * 嵌入式系统单进程，始终返回1
+ */
+int _getpid(void)
+{
+    return 1;
+}
+
+/**
+ * @brief 发送信号（空实现）
+ *
+ * 嵌入式系统不支持信号，返回错误
+ */
+int _kill(int pid, int sig)
+{
+    (void)pid;
+    (void)sig;
+    errno = EINVAL;
+    return -1;
+}
+
+/**
  * @brief 写入文件（由debug.c实现）
  */
 
