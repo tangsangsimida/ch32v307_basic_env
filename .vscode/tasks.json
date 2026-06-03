@@ -1,0 +1,75 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: 配置",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B",
+                "build",
+                "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain-riscv.cmake",
+                "-DCMAKE_BUILD_TYPE=Debug"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "CMake配置项目",
+            "options": {
+                "env": {
+                    "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: 构建",
+            "type": "shell",
+            "command": "cmake --build build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "构建项目",
+            "dependsOn": "CMake: 配置",
+            "options": {
+                "env": {
+                    "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: 清理",
+            "type": "shell",
+            "command": "rm -rf build",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "清理构建目录"
+        },
+        {
+            "label": "CMake: 重新构建",
+            "type": "shell",
+            "command": "rm -rf build && cmake -B build -DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain-riscv.cmake -DCMAKE_BUILD_TYPE=Debug && cmake --build build",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "清理并重新构建",
+            "options": {
+                "env": {
+                    "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: 烧录",
+            "type": "shell",
+            "command": "cmake --build build --target flash",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "烧录到MCU",
+            "options": {
+                "env": {
+                    "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
+                }
+            }
+        }
+    ]
+}

@@ -16,6 +16,9 @@
     "cmake.configureArgs": [
         "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain-riscv.cmake"
     ],
+    "cmake.environment": {
+        "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
+    },
 
     // 文件关联
     "files.associations": {

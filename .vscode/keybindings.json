@@ -1,0 +1,27 @@
+[
+    {
+        "key": "f7",
+        "command": "workbench.action.tasks.runTask",
+        "args": "CMake: 构建"
+    },
+    {
+        "key": "ctrl+shift+b",
+        "command": "workbench.action.tasks.runTask",
+        "args": "CMake: 构建"
+    },
+    {
+        "key": "ctrl+shift+c",
+        "command": "workbench.action.tasks.runTask",
+        "args": "CMake: 清理"
+    },
+    {
+        "key": "ctrl+shift+r",
+        "command": "workbench.action.tasks.runTask",
+        "args": "CMake: 重新构建"
+    },
+    {
+        "key": "ctrl+shift+f",
+        "command": "workbench.action.tasks.runTask",
+        "args": "CMake: 烧录"
+    }
+]
