@@ -31,40 +31,12 @@ LED_Blink/
 │   └── Link.ld             # 链接脚本
 ├── CMakeLists.txt          # CMake构建脚本
 ├── toolchain-riscv.cmake   # CMake工具链文件
-├── Makefile                # Make构建脚本
 └── README.md               # 本文件
 ```
 
 ## 构建方法
 
-### 方法一：使用MounRiver Studio
-
-1. 打开MounRiver Studio
-2. File → Import → Existing Projects into Workspace
-3. 选择LED_Blink目录
-4. Project → Build Project
-5. Run → Debug As → MounRiver Program
-
-### 方法二：Make构建
-
-```bash
-# 设置工具链路径
-export PATH="/home/dennis/software/riscv-none-elf/bin:$PATH"
-
-# 进入项目目录
-cd LED_Blink
-
-# 编译
-make
-
-# 清理
-make clean
-
-# 烧录（需要WCH-Link连接）
-make flash
-```
-
-### 方法三：CMake构建
+### 方法一：CMake命令行构建
 
 ```bash
 # 设置工具链路径
@@ -85,6 +57,14 @@ rm -rf build
 # 烧录（需要WCH-Link连接）
 cmake --build build --target flash
 ```
+
+### 方法二：使用MounRiver Studio
+
+1. 打开MounRiver Studio
+2. File → Import → Existing Projects into Workspace
+3. 选择LED_Blink目录
+4. Project → Build Project
+5. Run → Debug As → MounRiver Program
 
 ## 代码说明
 
