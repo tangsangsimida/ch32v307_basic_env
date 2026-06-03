@@ -13,25 +13,25 @@
 
 ```
 LED_Blink/
-├── User/
-│   ├── main.c              # 主程序
-│   ├── ch32v30x_it.c       # 中断处理
-│   ├── ch32v30x_it.h       # 中断头文件
-│   ├── ch32v30x_conf.h     # 外设配置
-│   ├── system_ch32v30x.c   # 系统初始化
-│   └── system_ch32v30x.h   # 系统头文件
-├── LIB/
+├── CMakeLists.txt              # 顶层构建脚本
+├── toolchain-riscv.cmake       # CMake工具链文件
+├── Ld/Link.ld                  # 链接脚本
+├── lib/                        # CH32V30x标准外设库
+│   ├── CMakeLists.txt          # 库构建脚本
 │   ├── Peripheral/
-│   │   ├── inc/            # 外设头文件
-│   │   └── src/            # 外设源文件（gpio, rcc, usart, misc, dbgmcu）
-│   ├── Core/               # RISC-V核心文件
-│   ├── Debug/              # 调试和延时函数
-│   └── Startup/            # 启动汇编文件
-├── Ld/
-│   └── Link.ld             # 链接脚本
-├── CMakeLists.txt          # CMake构建脚本
-├── toolchain-riscv.cmake   # CMake工具链文件
-└── README.md               # 本文件
+│   │   ├── inc/                # 外设头文件
+│   │   └── src/                # 外设源文件
+│   ├── Core/                   # RISC-V核心文件
+│   ├── Debug/                  # 调试和延时函数
+│   └── Startup/                # 启动汇编文件
+├── user/                       # 用户应用代码
+│   ├── CMakeLists.txt          # 用户代码构建脚本
+│   ├── main.c                  # 主程序
+│   ├── ch32v30x_it.c           # 中断处理
+│   ├── ch32v30x_conf.h         # 外设配置
+│   ├── system_ch32v30x.c       # 系统初始化
+│   └── system_ch32v30x.h       # 系统头文件
+└── README.md
 ```
 
 ## 构建方法
