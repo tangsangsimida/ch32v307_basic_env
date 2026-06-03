@@ -28,6 +28,20 @@ set(TOOLCHAIN_PREFIX "riscv-none-embed-")
 # 项目名称
 project(ch32v307_bare_metal_template C ASM)
 
+# ============================================================================
+# 构建信息输出
+# ============================================================================
+message(STATUS "")
+message(STATUS "========================================")
+message(STATUS "  CH32V307 裸机开发模板")
+message(STATUS "========================================")
+message(STATUS "  项目名称: ${PROJECT_NAME}")
+message(STATUS "  构建类型: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  工具链:   ${TOOLCHAIN_PREFIX}gcc")
+message(STATUS "  芯片型号: CH32V30x_D8C")
+message(STATUS "========================================")
+message(STATUS "")
+
 # CH32V307芯片定义
 add_compile_definitions(CH32V30x_D8C)
 
@@ -76,10 +90,22 @@ target_link_libraries(${PROJECT_NAME}.elf PRIVATE c m nosys)
 
 # 构建后：生成HEX和BIN文件
 add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
+    # 生成HEX文件
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}.elf> ${PROJECT_NAME}.hex
+    # 生成BIN文件
     COMMAND ${CMAKE_OBJCOPY} -O binary -S $<TARGET_FILE:${PROJECT_NAME}.elf> ${PROJECT_NAME}.bin
+    # 显示构建结果
     COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}.elf>
-    COMMENT "正在生成HEX和BIN文件..."
+    COMMENT ""
+    COMMENT "========================================"
+    COMMENT "  构建完成!"
+    COMMENT "========================================"
+    COMMENT "  ELF: build/${PROJECT_NAME}.elf"
+    COMMENT "  HEX: build/${PROJECT_NAME}.hex"
+    COMMENT "  BIN: build/${PROJECT_NAME}.bin"
+    COMMENT "  MAP: build/${PROJECT_NAME}.map"
+    COMMENT "========================================"
+    COMMENT ""
 )
 
 # 额外的清理文件
@@ -89,7 +115,15 @@ set_directory_properties(PROPERTIES
 
 # 烧录目标
 add_custom_target(flash
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "========================================"
+    COMMAND ${CMAKE_COMMAND} -E echo "  正在烧录..."
+    COMMAND ${CMAKE_COMMAND} -E echo "========================================"
     COMMAND wch-isp flash -a 0x00000000 ${PROJECT_NAME}.bin
+    COMMAND ${CMAKE_COMMAND} -E echo "========================================"
+    COMMAND ${CMAKE_COMMAND} -E echo "  烧录完成!"
+    COMMAND ${CMAKE_COMMAND} -E echo "========================================"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
     DEPENDS ${PROJECT_NAME}.elf
     COMMENT "正在烧录到CH32V307..."
 )
