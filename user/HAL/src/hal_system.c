@@ -8,6 +8,7 @@
 
 #include "hal_system.h"
 #include "ch32v30x.h"
+#include "debug.h"
 #include <stddef.h>
 
 /**

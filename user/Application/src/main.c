@@ -5,6 +5,7 @@
 
 #include "hal.h"
 #include "chip_info.h"
+#include <stdio.h>
 
 int main(void)
 {

@@ -7,6 +7,7 @@
  */
 
 #include "hal_uart.h"
+#include "hal_system.h"
 #include "ch32v30x.h"
 #include <stddef.h>
 #include <string.h>
