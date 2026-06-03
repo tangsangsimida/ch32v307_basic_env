@@ -83,6 +83,7 @@ target_link_options(${PROJECT_NAME}.elf PRIVATE
     -T${LINKER_SCRIPT}
     -Wl,-Map=${PROJECT_NAME}.map,--cref
     -Wl,--gc-sections
+    -u _printf_float
 )
 
 # 链接库（CMake标准方式）
