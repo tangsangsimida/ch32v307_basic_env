@@ -129,31 +129,35 @@ cmake --build build --target flash
 
 ### 使用示例
 
+**main.c**:
 ```c
 #include "hal.h"
+#include "chip_info.h"
 
 int main(void)
 {
+    uint8_t uid[CHIP_UID_LENGTH];
+
     /* 初始化HAL */
     hal_init();
 
-    /* 配置GPIO */
-    hal_gpio_config_t gpio_config = {
-        .port = HAL_GPIO_PORT_A,
-        .pin = HAL_GPIO_PIN_0,
-        .mode = HAL_GPIO_MODE_OUTPUT_PP,
-        .speed = HAL_GPIO_SPEED_HIGH
-    };
-    hal_gpio_init(&gpio_config);
+    /* 打印芯片信息 */
+    chip_print_info();
+
+    /* 获取并打印UID */
+    chip_get_uid(uid);
+    chip_print_uid(uid);
 
     /* 主循环 */
     while (1)
     {
-        hal_gpio_toggle(HAL_GPIO_PORT_A, HAL_GPIO_PIN_0);
-        hal_delay_ms(500);
+        hal_delay_ms(1000);
     }
 }
 ```
+
+**chip_info.h / chip_info.c**:
+封装芯片信息相关功能，降低耦合度。
 
 ### 移植指南
 
