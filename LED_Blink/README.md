@@ -29,7 +29,9 @@ LED_Blink/
 │   └── Startup/            # 启动汇编文件
 ├── Ld/
 │   └── Link.ld             # 链接脚本
-├── Makefile                # 构建脚本
+├── CMakeLists.txt          # CMake构建脚本
+├── toolchain-riscv.cmake   # CMake工具链文件
+├── Makefile                # Make构建脚本
 └── README.md               # 本文件
 ```
 
@@ -43,7 +45,7 @@ LED_Blink/
 4. Project → Build Project
 5. Run → Debug As → MounRiver Program
 
-### 方法二：命令行构建
+### 方法二：Make构建
 
 ```bash
 # 设置工具链路径
@@ -60,6 +62,28 @@ make clean
 
 # 烧录（需要WCH-Link连接）
 make flash
+```
+
+### 方法三：CMake构建
+
+```bash
+# 设置工具链路径
+export PATH="/home/dennis/software/riscv-none-elf/bin:$PATH"
+
+# 配置（Release模式）
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=toolchain-riscv.cmake -DCMAKE_BUILD_TYPE=Release
+
+# 配置（Debug模式）
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=toolchain-riscv.cmake -DCMAKE_BUILD_TYPE=Debug
+
+# 编译
+cmake --build build
+
+# 清理
+rm -rf build
+
+# 烧录（需要WCH-Link连接）
+cmake --build build --target flash
 ```
 
 ## 代码说明
