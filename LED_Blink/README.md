@@ -46,6 +46,9 @@ LED_Blink/
 ### 方法二：命令行构建
 
 ```bash
+# 设置工具链路径
+export PATH="/home/dennis/software/riscv-none-elf/bin:$PATH"
+
 # 进入项目目录
 cd LED_Blink
 
@@ -55,7 +58,7 @@ make
 # 清理
 make clean
 
-# 烧录（需要wch-isp工具）
+# 烧录（需要WCH-Link连接）
 make flash
 ```
 

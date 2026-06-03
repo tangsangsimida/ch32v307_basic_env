@@ -1,5 +1,6 @@
 # CH32V307 LED Blink Makefile
 # Toolchain: riscv-none-embed-gcc (MounRiver Studio)
+# Install: export PATH="/home/dennis/software/riscv-none-elf/bin:$PATH"
 
 # Project name
 TARGET = LED_Blink
@@ -43,11 +44,11 @@ HEX = $(CP) -O ihex
 BIN = $(CP) -O binary -S
 
 # MCU flags
-# CH32V307: rv32imac, ilp32
-MCU = -march=rv32imac -mabi=ilp32
+# CH32V307: rv32imac + zicsr + zifencei, ilp32
+MCU = -march=rv32imac_zicsr_zifencei -mabi=ilp32
 
 # C flags
-CFLAGS = $(MCU) $(C_INCLUDES) -Wall -fdata-sections -ffunction-sections
+CFLAGS = $(MCU) $(C_INCLUDES) -Wall -fdata-sections -ffunction-sections -specs=nano.specs
 CFLAGS += -DCH32V30x_D8C
 
 # Debug flags
@@ -65,7 +66,7 @@ LIBS = -lc -lm -lnosys
 LIBDIR =
 
 # Linker flags
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
+LDFLAGS = $(MCU) -nostartfiles -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 # Build rules
 all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
