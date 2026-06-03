@@ -8,6 +8,7 @@
 
 #include "hal_system.h"
 #include "ch32v30x.h"
+#include <stddef.h>
 
 /**
  * @brief 系统滴答计数器

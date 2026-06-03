@@ -11,6 +11,15 @@
 #include "hal_gpio.h"
 #include "hal_uart.h"
 #include "hal_timer.h"
+#include "hal_spi.h"
+#include "hal_i2c.h"
+#include "hal_adc.h"
+#include "hal_pwm.h"
+#include "hal_rtc.h"
+#include "hal_wdg.h"
+#include "hal_dma.h"
+#include "hal_flash.h"
+#include "hal_can.h"
 #include "hal_system.h"
 
 #ifdef __cplusplus
