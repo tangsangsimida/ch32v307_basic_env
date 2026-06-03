@@ -1,17 +1,16 @@
-# Build output
+# 构建输出
 build/
 
-# IDE files
-.vscode/
+# IDE文件（保留.vscode配置）
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# 操作系统文件
 .DS_Store
 Thumbs.db
 
-# Reference materials (optional)
+# 参考资料（可选）
 参考资料/
 CLAUDE.md

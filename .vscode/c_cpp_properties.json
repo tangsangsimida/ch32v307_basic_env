@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "CH32V307",
+            "includePath": [
+                "${workspaceFolder}/user/Application/inc",
+                "${workspaceFolder}/user/BSP/inc",
+                "${workspaceFolder}/user/Peripherals/inc",
+                "${workspaceFolder}/lib/Peripheral/inc",
+                "${workspaceFolder}/lib/Core",
+                "${workspaceFolder}/lib/Debug"
+            ],
+            "defines": [
+                "CH32V30x_D8C"
+            ],
+            "compilerPath": "/home/dennis/software/riscv-none-elf/bin/riscv-none-embed-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        // clangd（推荐，更快更准确）
+        "llvm-vs-code-extensions.vscode-clangd",
+        // C/C++（备用）
+        "ms-vscode.cpptools",
+        // CMake支持
+        "ms-vscode.cmake-tools",
+        // CMake语法高亮
+        "twxs.cmake"
+    ]
+}
