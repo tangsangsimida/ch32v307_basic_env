@@ -1,9 +1,13 @@
 /**
  * @file main.c
- * @brief 获取96位芯片唯一ID示例
+ * @brief LED交错闪烁 + 串口输出示例
+ *
+ * LED1(PE8)和LED2(PE9)交替亮灭，间隔500ms。
+ * 串口每500ms输出一次"helloworld"。
  */
 
 #include "hal.h"
+#include "led.h"
 #include "chip_info.h"
 #include <stdio.h>
 
@@ -13,6 +17,9 @@ int main(void)
 
     /* 初始化HAL */
     hal_init();
+
+    /* 初始化LED */
+    led_init();
 
     /* 打印标题 */
     printf("\r\n========================================\r\n");
@@ -33,6 +40,9 @@ int main(void)
     /* 主循环 */
     while (1)
     {
-        hal_delay_ms(1000);
+        led_toggle(LED1);
+        led_toggle(LED2);
+        printf("helloworld\r\n");
+        hal_delay_ms(500);
     }
 }
