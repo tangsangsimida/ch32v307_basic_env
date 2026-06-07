@@ -1222,7 +1222,9 @@ void ETH_DeInit(void);
 void ETH_StructInit(ETH_InitTypeDef* ETH_InitStruct);
 void ETH_SoftwareReset(void);
 FlagStatus ETH_GetSoftwareResetStatus(void);
-FlagStatus ETH_GetlinkStaus (void);
+FlagStatus ETH_GetlinkStatus(void);
+/* 兼容旧拼写 */
+#define ETH_GetlinkStaus ETH_GetlinkStatus
 void  ETH_Start(void);
 uint32_t ETH_HandleTxPkt(uint8_t *ppkt, uint16_t FrameLength);
 void delay_clk (uint32_t nCount);
