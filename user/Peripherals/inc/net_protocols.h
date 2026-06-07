@@ -1,13 +1,13 @@
 /**
- * @file dhcp_client.h
- * @brief 最小化 DHCP 客户端接口
+ * @file net_protocols.h
+ * @brief 最小化网络协议栈接口
  *
- * 依赖 eth_demo 提供的原始帧收发能力。
- * 实现 ARP + IP + UDP + DHCP 协议栈。
+ * 实现 ARP + IP + ICMP + UDP + DHCP 协议。
+ * 通过 eth_demo 提供的原始帧收发能力工作。
  */
 
-#ifndef DHCP_CLIENT_H
-#define DHCP_CLIENT_H
+#ifndef NET_PROTOCOLS_H
+#define NET_PROTOCOLS_H
 
 #include <stdint.h>
 
@@ -40,9 +40,9 @@ typedef struct {
 } dhcp_info_t;
 
 /**
- * @brief 初始化 DHCP 客户端
+ * @brief 初始化网络协议栈
  *
- * 自动使用 ETH demo 的 MAC 地址。
+ * 自动使用 ETH demo 的 MAC 地址，启动 DHCP 状态机。
  */
 void dhcp_init(void);
 
@@ -52,10 +52,10 @@ void dhcp_init(void);
 void dhcp_set_static_ip(uint32_t ip, uint32_t mask, uint32_t gw, uint32_t dns);
 
 /**
- * @brief DHCP 主任务（需在主循环中调用）
+ * @brief 网络协议主任务（需在主循环中调用）
  *
- * 处理 DHCP 状态机：DISCOVER → OFFER → REQUEST → BOUND。
- * 获取到 IP 后自动进入 BOUND 状态。
+ * 接收以太网帧并分发到 ARP/ICMP/UDP/DHCP 处理。
+ * DHCP 状态机：DISCOVER → OFFER → REQUEST → BOUND。
  */
 void dhcp_poll(void);
 
@@ -101,4 +101,4 @@ void udp_send(uint32_t dst_ip, uint16_t dst_port,
 }
 #endif
 
-#endif /* DHCP_CLIENT_H */
+#endif /* NET_PROTOCOLS_H */

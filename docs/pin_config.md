@@ -16,6 +16,8 @@
 | PA14 | CLK | SWCLK | - | SWD 调试 |
 | PE8 | GPIO | LED1 | user/Peripherals/src/led.c | 推挽输出 |
 | PE9 | GPIO | LED2 | user/Peripherals/src/led.c | 推挽输出 |
+| PC10 | GPIO | ELED1 (ETH Link) | user/Peripherals/src/eth_led.c | 推挽输出，低电平点亮 |
+| PC11 | GPIO | ELED2 (ETH Activity) | user/Peripherals/src/eth_led.c | 推挽输出，低电平点亮 |
 
 ### 以太网 RMII 引脚（eth_demo.c）
 
@@ -46,7 +48,7 @@
 |------|----------|
 | PA | PA0, PA3-PA6, PA8 |
 | PB | PB0-PB5, PB6(PB7), PB8-PB10, PB14-PB15 |
-| PC | PC0, PC2-PC3, PC6-PC13 |
+| PC | PC0, PC2-PC3, PC6-PC9, PC12-PC13 |
 | PD | PD2-PD15 |
 | PE | PE0-PE7, PE10-PE15 |
 

@@ -7,6 +7,7 @@
  */
 
 #include "eth_demo.h"
+#include "eth_led.h"
 #include "ch32v30x.h"
 #include "ch32v30x_eth.h"
 #include "debug.h"
@@ -299,8 +300,13 @@ void eth_demo_poll(void)
 
 uint32_t eth_demo_send(uint8_t *pbuf, uint16_t len)
 {
+    uint32_t ret;
+
     if (len > ETH_MAX_PACKET_SIZE) return 0;
-    return ETH_HandleTxPkt(pbuf, len);
+    ret = ETH_HandleTxPkt(pbuf, len);
+    if (ret)
+        eth_led_activity_trigger();
+    return ret;
 }
 
 uint32_t eth_demo_recv(uint8_t *pbuf)
@@ -311,6 +317,7 @@ uint32_t eth_demo_recv(uint8_t *pbuf)
     if (len > 0)
     {
         ETH_HandleRxPkt(pbuf);
+        eth_led_activity_trigger();
     }
 
     return len;

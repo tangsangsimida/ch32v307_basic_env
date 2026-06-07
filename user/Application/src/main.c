@@ -7,8 +7,9 @@
 #include "led.h"
 #include "chip_info.h"
 #include "eth_demo.h"
+#include "eth_led.h"
 #include "usb_cdc_demo.h"
-#include "dhcp_client.h"
+#include "net_protocols.h"
 #include "debug.h"
 #include <stdio.h>
 
@@ -42,6 +43,9 @@ int main(void)
     printf("\r\n--- Ethernet ---\r\n");
     eth_demo_init();
 
+    /* 初始化以太网状态 LED（ELED1-PC10 Link, ELED2-PC11 Activity） */
+    eth_led_init();
+
     /* 启动 DHCP 自动获取 IP */
     printf("\r\n--- Network ---\r\n");
     dhcp_init();
@@ -65,6 +69,10 @@ int main(void)
 
         /* 以太网轮询（链路状态 + 收发帧） */
         eth_demo_poll();
+
+        /* 以太网状态 LED 更新 */
+        eth_led_link_update(eth_demo_get_link_status() == ETH_LINK_UP);
+        eth_led_tick();
 
         /* 网络处理（ARP 应答 + UDP Echo） */
         dhcp_poll();

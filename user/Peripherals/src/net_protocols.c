@@ -1,12 +1,18 @@
 /**
- * @file dhcp_client.c
- * @brief 最小化 DHCP 客户端实现
+ * @file net_protocols.c
+ * @brief 最小化网络协议栈实现
  *
- * 实现 ARP + IP + ICMP + UDP + DHCP 协议栈。
+ * 实现 ARP + IP + ICMP + UDP + DHCP 协议。
  * 通过 eth_demo 的 send/recv 收发原始以太网帧。
+ *
+ * 协议分层：
+ *   ARP   — 地址解析 + 应答 + 缓存
+ *   ICMP  — Echo Reply (ping 响应)
+ *   UDP   — 发送/接收 + Echo (端口 7)
+ *   DHCP  — 自动获取 IP 地址
  */
 
-#include "dhcp_client.h"
+#include "net_protocols.h"
 #include "eth_demo.h"
 #include "ch32v30x.h"
 #include "debug.h"
@@ -558,7 +564,7 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
 }
 
 /* ========================================================================
- * IP/ICMP/UDP 接收处理
+ * ICMP 处理
  * ======================================================================== */
 static void icmp_process(uint8_t *frame, uint16_t len, ip_hdr_t *ip)
 {
@@ -614,28 +620,11 @@ static void icmp_process(uint8_t *frame, uint16_t len, ip_hdr_t *ip)
     printf("[ICMP] Echo reply to %s TX=%lu\r\n", ip_str, (unsigned long)ret);
 }
 
-static void ip_process(uint8_t *frame, uint16_t len)
+/* ========================================================================
+ * UDP 接收处理
+ * ======================================================================== */
+static void udp_process(uint8_t *frame, uint16_t len, const ip_hdr_t *ip)
 {
-    const ip_hdr_t *ip = (const ip_hdr_t *)(frame + 14);
-
-    if (len < sizeof(eth_hdr_t) + 20)
-        return;
-
-    if ((ip->ver_ihl & 0xF0) != 0x40)
-        return;
-
-    if (ip->protocol == IP_PROTO_ICMP)
-    {
-        icmp_process(frame, len, (ip_hdr_t *)ip);
-        return;
-    }
-
-    if (ip->protocol != IP_PROTO_UDP)
-        return;
-
-    if ((ip->ver_ihl & 0x0F) != 5)
-        return;
-
     const udp_hdr_t *udp = (const udp_hdr_t *)(frame + 14 + 20);
     uint16_t dst_port = __builtin_bswap16(udp->dst_port);
     uint16_t src_port = __builtin_bswap16(udp->src_port);
@@ -664,6 +653,34 @@ static void ip_process(uint8_t *frame, uint16_t len)
             printf("[ECHO] %d bytes echoed to port %d\r\n", udp_len - 8, src_port);
         }
     }
+}
+
+/* ========================================================================
+ * IP 帧分发
+ * ======================================================================== */
+static void ip_process(uint8_t *frame, uint16_t len)
+{
+    const ip_hdr_t *ip = (const ip_hdr_t *)(frame + 14);
+
+    if (len < sizeof(eth_hdr_t) + 20)
+        return;
+
+    if ((ip->ver_ihl & 0xF0) != 0x40)
+        return;
+
+    if (ip->protocol == IP_PROTO_ICMP)
+    {
+        icmp_process(frame, len, (ip_hdr_t *)ip);
+        return;
+    }
+
+    if (ip->protocol != IP_PROTO_UDP)
+        return;
+
+    if ((ip->ver_ihl & 0x0F) != 5)
+        return;
+
+    udp_process(frame, len, ip);
 }
 
 /* ========================================================================
