@@ -58,6 +58,7 @@
 #define OPT_ROUTER          3
 #define OPT_DNS             6
 #define OPT_REQUESTED_IP    50
+#define OPT_LEASE_TIME      51
 #define OPT_MSG_TYPE        53
 #define OPT_SERVER_ID       54
 #define OPT_END             255
@@ -159,8 +160,32 @@ static volatile dhcp_state_t dhcp_state = DHCP_STATE_IDLE;
 static uint32_t dhcp_retry_count = 0;
 static uint32_t dhcp_tick = 0;
 
+/* 简易 ARP 缓存（单条目，记录最近通信对端的 MAC） */
+static uint8_t arp_cache_mac[6] = {0};
+static uint32_t arp_cache_ip = 0;
+
 /* 接收缓冲区 */
 static uint8_t rx_buf[1520];
+
+static uint32_t ip_read_be(const void *data)
+{
+    const uint8_t *p = (const uint8_t *)data;
+
+    return ((uint32_t)p[0] << 24) |
+           ((uint32_t)p[1] << 16) |
+           ((uint32_t)p[2] << 8) |
+           (uint32_t)p[3];
+}
+
+static void ip_write_be(void *data, uint32_t ip)
+{
+    uint8_t *p = (uint8_t *)data;
+
+    p[0] = (uint8_t)(ip >> 24);
+    p[1] = (uint8_t)(ip >> 16);
+    p[2] = (uint8_t)(ip >> 8);
+    p[3] = (uint8_t)ip;
+}
 
 /* ========================================================================
  * 校验和计算
@@ -199,17 +224,76 @@ static void __attribute__((unused)) arp_send_request(uint32_t target_ip)
     pkt.oper = __builtin_bswap16(ARP_OP_REQUEST);
 
     memcpy(pkt.sha, my_mac, 6);
-    memcpy(pkt.spa, (const void *)&my_ip, 4);
+    ip_write_be(pkt.spa, my_ip);
     memset(pkt.tha, 0, 6);
-    memcpy(pkt.tpa, &target_ip, 4);
+    ip_write_be(pkt.tpa, target_ip);
 
     eth_demo_send((uint8_t *)&pkt, sizeof(pkt));
+}
+
+/**
+ * @brief 处理收到的 ARP 包（应答 ARP 请求 + 学习 ARP 缓存）
+ */
+static void arp_process(const uint8_t *frame, uint16_t len)
+{
+    const arp_pkt_t *arp = (const arp_pkt_t *)frame;
+    uint16_t oper = __builtin_bswap16(arp->oper);
+
+    /* 只处理 Ethernet + IPv4 类型 */
+    if (__builtin_bswap16(arp->htype) != ARP_HTYPE_ETH) return;
+    if (__builtin_bswap16(arp->ptype) != ARP_PTYPE_IP) return;
+    if (arp->hlen != 6 || arp->plen != 4) return;
+
+    /* 学习发送方的 MAC-IP 映射 */
+    uint32_t sender_ip = ip_read_be(arp->spa);
+    if (sender_ip != 0)
+    {
+        memcpy(arp_cache_mac, arp->sha, 6);
+        arp_cache_ip = sender_ip;
+    }
+
+    if (oper == ARP_OP_REQUEST)
+    {
+        /* 检查是否请求的是我们的 IP */
+        uint32_t target_ip = ip_read_be(arp->tpa);
+        printf("[ARP] target=%08lX my=%08lX\r\n",
+               (unsigned long)target_ip, (unsigned long)my_ip);
+        if (target_ip != my_ip) return;
+
+        /* 构造 ARP 应答 */
+        arp_pkt_t reply;
+        memset(&reply, 0, sizeof(reply));
+
+        /* 以太网头：单播回请求方 */
+        memcpy(reply.eth.dst, arp->sha, 6);
+        memcpy(reply.eth.src, my_mac, 6);
+        reply.eth.type = __builtin_bswap16(ETH_TYPE_ARP);
+
+        /* ARP 头 */
+        reply.htype = __builtin_bswap16(ARP_HTYPE_ETH);
+        reply.ptype = __builtin_bswap16(ARP_PTYPE_IP);
+        reply.hlen = 6;
+        reply.plen = 4;
+        reply.oper = __builtin_bswap16(ARP_OP_REPLY);
+
+        /* 应答：我们的 MAC+IP → 请求方的 MAC+IP */
+        memcpy(reply.sha, my_mac, 6);
+        ip_write_be(reply.spa, my_ip);
+        memcpy(reply.tha, arp->sha, 6);
+        memcpy(reply.tpa, arp->spa, 4);
+
+        {
+            uint32_t ret = eth_demo_send((uint8_t *)&reply, sizeof(reply));
+            printf("[ARP] TX=%lu DMASR=0x%08lX\r\n",
+                   (unsigned long)ret, (unsigned long)ETH->DMASR);
+        }
+    }
 }
 
 /* ========================================================================
  * IP/UDP 发送
  * ======================================================================== */
-static void udp_send(uint32_t dst_ip, uint16_t dst_port,
+void udp_send(uint32_t dst_ip, uint16_t dst_port,
                      uint16_t src_port, const uint8_t *data, uint16_t data_len)
 {
     uint8_t buf[1520];
@@ -222,8 +306,10 @@ static void udp_send(uint32_t dst_ip, uint16_t dst_port,
     /* 以太网头 */
     if (dst_ip == 0xFFFFFFFF)
         memset(pkt->eth.dst, 0xFF, 6);
+    else if (arp_cache_ip == dst_ip)
+        memcpy(pkt->eth.dst, arp_cache_mac, 6);  /* ARP 缓存命中 */
     else
-        memset(pkt->eth.dst, 0, 6); /* TODO: ARP 解析 */
+        memset(pkt->eth.dst, 0xFF, 6);  /* 缓存未命中，回退广播 */
     memcpy(pkt->eth.src, my_mac, 6);
     pkt->eth.type = __builtin_bswap16(ETH_TYPE_IP);
 
@@ -233,8 +319,8 @@ static void udp_send(uint32_t dst_ip, uint16_t dst_port,
     pkt->ip.id = __builtin_bswap16(0x1234);
     pkt->ip.ttl = IP_TTL;
     pkt->ip.protocol = IP_PROTO_UDP;
-    pkt->ip.src_ip = my_ip;
-    pkt->ip.dst_ip = dst_ip;
+    ip_write_be(&pkt->ip.src_ip, my_ip);
+    ip_write_be(&pkt->ip.dst_ip, dst_ip);
     pkt->ip.checksum = ip_checksum((uint16_t *)&pkt->ip, 20);
 
     /* UDP 头 */
@@ -325,13 +411,13 @@ static void dhcp_send_request(uint32_t offered_ip, uint32_t server_ip)
     /* 请求的 IP */
     *opt++ = OPT_REQUESTED_IP;
     *opt++ = 4;
-    memcpy(opt, &offered_ip, 4);
+    ip_write_be(opt, offered_ip);
     opt += 4;
 
     /* DHCP 服务器 */
     *opt++ = OPT_SERVER_ID;
     *opt++ = 4;
-    memcpy(opt, &server_ip, 4);
+    ip_write_be(opt, server_ip);
     opt += 4;
 
     *opt++ = OPT_END;
@@ -352,7 +438,8 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
     const dhcp_pkt_t *pkt = (const dhcp_pkt_t *)data;
     const uint8_t *opt;
     uint8_t msg_type = 0;
-    uint32_t offered_ip, server_ip;
+    uint32_t offered_ip, server_ip = 0;
+    char ip_str[16];
 
     if (__builtin_bswap32(pkt->magic) != DHCP_MAGIC)
         return;
@@ -360,7 +447,7 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
     if (__builtin_bswap32(pkt->xid) != xid)
         return;
 
-    offered_ip = pkt->yiaddr;
+    offered_ip = ip_read_be(&pkt->yiaddr);
 
     /* 解析选项 */
     opt = pkt->options;
@@ -382,20 +469,31 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
     switch (msg_type)
     {
     case DHCP_OFFER:
-        printf("[DHCP] OFFER: IP="); dhcp_ip_to_str(offered_ip, (char[16]){0});
+        dhcp_ip_to_str(offered_ip, ip_str);
+        printf("[DHCP] OFFER: IP=%s", ip_str);
         /* 找到服务器 ID */
         opt = pkt->options;
         while (opt < data + len && *opt != OPT_END)
         {
             if (*opt == OPT_SERVER_ID && opt[1] == 4)
             {
-                memcpy(&server_ip, opt + 2, 4);
+                server_ip = ip_read_be(opt + 2);
                 break;
             }
             if (*opt == OPT_PAD) { opt++; continue; }
             opt += 2 + opt[1];
         }
-        printf(" from "); dhcp_ip_to_str(server_ip, (char[16]){0}); printf("\r\n");
+        if (server_ip == 0)
+        {
+            server_ip = ip_read_be(&pkt->siaddr);
+        }
+        if (server_ip == 0)
+        {
+            printf(" without server id, ignored\r\n");
+            break;
+        }
+        dhcp_ip_to_str(server_ip, ip_str);
+        printf(" from %s\r\n", ip_str);
 
         dhcp_server = server_ip;
         dhcp_state = DHCP_STATE_REQUEST;
@@ -412,18 +510,24 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
             if (*opt == OPT_PAD) { opt++; continue; }
             uint8_t olen = opt[1];
             if (*opt == OPT_SUBNET_MASK && olen == 4)
-                memcpy((void *)&my_mask, opt + 2, 4);
+                my_mask = ip_read_be(opt + 2);
             else if (*opt == OPT_ROUTER && olen >= 4)
-                memcpy((void *)&my_gateway, opt + 2, 4);
+                my_gateway = ip_read_be(opt + 2);
             else if (*opt == OPT_DNS && olen >= 4)
-                memcpy((void *)&my_dns, opt + 2, 4);
+                my_dns = ip_read_be(opt + 2);
+            else if (*opt == OPT_LEASE_TIME && olen == 4)
+                dhcp_lease = ip_read_be(opt + 2);
             opt += 2 + olen;
         }
 
-        printf("[DHCP] ACK: IP="); dhcp_ip_to_str(my_ip, (char[16]){0});
-        printf(" Mask="); dhcp_ip_to_str(my_mask, (char[16]){0});
-        printf(" GW="); dhcp_ip_to_str(my_gateway, (char[16]){0});
-        printf(" DNS="); dhcp_ip_to_str(my_dns, (char[16]){0});
+        dhcp_ip_to_str(my_ip, ip_str);
+        printf("[DHCP] ACK: IP=%s", ip_str);
+        dhcp_ip_to_str(my_mask, ip_str);
+        printf(" Mask=%s", ip_str);
+        dhcp_ip_to_str(my_gateway, ip_str);
+        printf(" GW=%s", ip_str);
+        dhcp_ip_to_str(my_dns, ip_str);
+        printf(" DNS=%s", ip_str);
         printf("\r\n");
 
         dhcp_state = DHCP_STATE_BOUND;
@@ -448,14 +552,25 @@ static void ip_process(const uint8_t *frame, uint16_t len)
 
     const udp_hdr_t *udp = (const udp_hdr_t *)(frame + 14 + 20);
     uint16_t dst_port = __builtin_bswap16(udp->dst_port);
-
-    if (dst_port != UDP_PORT_BOOTPC)
-        return;
-
+    uint16_t src_port = __builtin_bswap16(udp->src_port);
     uint16_t udp_len = __builtin_bswap16(udp->length);
     const uint8_t *payload = frame + 14 + 20 + 8;
+    uint32_t src_ip = ip_read_be(&ip->src_ip);
 
-    dhcp_process_reply(payload, udp_len - 8);
+    if (dst_port == UDP_PORT_BOOTPC)
+    {
+        /* DHCP 应答 */
+        dhcp_process_reply(payload, udp_len - 8);
+    }
+    else if (dst_port == 7)
+    {
+        /* UDP Echo: 原样回显数据到发送方 */
+        if (udp_len > 8)
+        {
+            udp_send(src_ip, src_port, 7, payload, udp_len - 8);
+            printf("[ECHO] %d bytes echoed to port %d\r\n", udp_len - 8, src_port);
+        }
+    }
 }
 
 /* ========================================================================
@@ -500,6 +615,10 @@ void dhcp_poll(void)
         if (eth_type == ETH_TYPE_IP)
         {
             ip_process(rx_buf, rx_len);
+        }
+        else if (eth_type == ETH_TYPE_ARP)
+        {
+            arp_process(rx_buf, rx_len);
         }
     }
 

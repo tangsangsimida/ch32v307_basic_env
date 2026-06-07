@@ -82,6 +82,21 @@ int dhcp_get_info(dhcp_info_t *info);
  */
 void dhcp_ip_to_str(uint32_t ip, char *buf);
 
+/**
+ * @brief 发送 UDP 数据包
+ *
+ * 自动构造以太网帧 + IP 头 + UDP 头，调用 eth_demo_send 发送。
+ * 单播时使用 ARP 缓存的 MAC 地址；缓存未命中时回退为广播。
+ *
+ * @param dst_ip   目标 IP（网络字节序）
+ * @param dst_port 目标端口（主机字节序）
+ * @param src_port 源端口（主机字节序）
+ * @param data     UDP 负载数据
+ * @param data_len 负载长度
+ */
+void udp_send(uint32_t dst_ip, uint16_t dst_port,
+              uint16_t src_port, const uint8_t *data, uint16_t data_len);
+
 #ifdef __cplusplus
 }
 #endif

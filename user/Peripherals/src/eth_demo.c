@@ -33,79 +33,30 @@ __attribute__((aligned(4))) static uint8_t MACRxBuf[ETH_RXBUFNB * ETH_BUF_SIZE];
  * ======================================================================== */
 static uint8_t MACAddr[6];
 static volatile uint8_t LinkSta = 0;  /* 0: down, 1: up */
-static uint16_t phy_addr = 0;         /* PHY 地址（扫描确认为 0） */
+static uint16_t phy_addr = 1;         /* PHY 地址（CH182 内部 PHY 地址为 1） */
 static volatile uint32_t eth_rx_count = 0;
 static volatile uint32_t eth_tx_count = 0;
 static volatile uint32_t eth_err_count = 0;
 
 /* ========================================================================
- * RMII GPIO 初始化
+ * 内部 10M PHY 时钟配置（PLL3 = 60MHz）
  * ======================================================================== */
-static void eth_rmiipin_init(void)
+static void eth_10m_clock_init(void)
 {
-    GPIO_InitTypeDef GPIO_InitStructure;
-
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |
-                           RCC_APB2Periph_GPIOB |
-                           RCC_APB2Periph_GPIOC |
-                           RCC_APB2Periph_AFIO, ENABLE);
-
-    GPIO_ETH_MediaInterfaceConfig(GPIO_ETH_MediaInterface_RMII);
-
-    /* 输出引脚：AF 推挽 50MHz */
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2;  /* MDIO */
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;  /* MDC */
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_11; /* TXEN */
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_12; /* TXD0 */
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13; /* TXD1 */
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-    /* 输入引脚：浮空输入 */
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;  /* REFCLK */
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;  /* CRSDV */
-    GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;  /* RXD0 */
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
-
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;  /* RXD1 */
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
+    RCC_PLL3Cmd(DISABLE);
+    RCC_PREDIV2Config(RCC_PREDIV2_Div2);       /* HSE 8MHz / 2 = 4MHz */
+    RCC_PLL3Config(RCC_PLL3Mul_15);            /* 4MHz × 15 = 60MHz */
+    RCC_PLL3Cmd(ENABLE);
+    while (RESET == RCC_GetFlagStatus(RCC_FLAG_PLL3RDY));
 }
 
 /* ========================================================================
- * PHY 功能初始化（CH182 内部 PHY）
+ * 内部 10M PHY 使能
  * ======================================================================== */
-static void eth_phy_func_init(void)
+static void eth_10m_phy_enable(void)
 {
-    uint16_t regval;
-
-    /* 配置 Repeater 模式 */
-    ETH_WritePHYRegister(phy_addr, 0x1F, 0x00);
-    regval = ETH_ReadPHYRegister(phy_addr, 28);
-    regval |= (1 << 13);
-    ETH_WritePHYRegister(phy_addr, 28, regval);
-
-    /* RMII RX clock 调整 */
-    ETH_WritePHYRegister(phy_addr, 0x1F, 0x07);
-    regval = ETH_ReadPHYRegister(phy_addr, 16);
-    regval &= ~(0x0F << 4);
-    regval |= (0x04 << 4);
-    ETH_WritePHYRegister(phy_addr, 16, regval);
+    /* 使能内部 10BASE-T PHY */
+    EXTEN->EXTEN_CTR |= EXTEN_ETH_10M_EN;
 }
 
 /* ========================================================================
@@ -121,11 +72,19 @@ static void eth_configuration(uint8_t *mac_addr)
                           RCC_AHBPeriph_ETH_MAC_Tx |
                           RCC_AHBPeriph_ETH_MAC_Rx, ENABLE);
 
-    /* RMII GPIO */
-    eth_rmiipin_init();
+    /* 配置 PLL3 60MHz 时钟（内部 10M PHY 需要） */
+    eth_10m_clock_init();
+
+    /* 使能内部 10BASE-T PHY */
+    eth_10m_phy_enable();
 
     /* ETH 复位 */
     ETH_DeInit();
+
+    /* ETH_DeInit 可能会关闭 MAC 时钟，重新使能 */
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_ETH_MAC |
+                          RCC_AHBPeriph_ETH_MAC_Tx |
+                          RCC_AHBPeriph_ETH_MAC_Rx, ENABLE);
 
     /* 软件复位 */
     ETH_SoftwareReset();
@@ -207,17 +166,9 @@ static void eth_configuration(uint8_t *mac_addr)
                               ETH_InitStructure.ETH_ForwardErrorFrames |
                               ETH_InitStructure.ETH_ForwardUndersizedGoodFrames);
 
-    /* 复位 PHY */
+    /* 复位内部 10M PHY */
     ETH_WritePHYRegister(phy_addr, PHY_BCR, PHY_Reset);
-    Delay_Ms(1000);
-
-    /* 官方 ETH_RegInit 中的额外 PHY 配置 */
-    ETH_WritePHYRegister(phy_addr, 0x1F, 0x00);
-    {
-        uint16_t tmpreg = ETH_ReadPHYRegister(phy_addr, 24);
-        if (tmpreg & (1 << 1))
-            ETH_WritePHYRegister(phy_addr, PHY_BCR, 0x3100);
-    }
+    Delay_Ms(100);
 
     /* 配置 MAC 地址 */
     ETH->MACA0HR = (uint32_t)((mac_addr[5] << 8) | mac_addr[4]);
@@ -234,9 +185,6 @@ static void eth_configuration(uint8_t *mac_addr)
                     ETH_DMA_IT_T |
                     ETH_DMA_IT_AIS |
                     ETH_DMA_IT_RBU, ENABLE);
-
-    /* PHY 功能初始化 */
-    eth_phy_func_init();
 }
 
 /* ========================================================================
@@ -244,55 +192,25 @@ static void eth_configuration(uint8_t *mac_addr)
  * ======================================================================== */
 static void eth_check_link(void)
 {
-    uint16_t bsr, bcr;
+    uint16_t bsr;
 
     bsr = ETH_ReadPHYRegister(phy_addr, PHY_BSR);
-    bcr = ETH_ReadPHYRegister(phy_addr, PHY_BCR);
 
     if (bsr & PHY_Linked_Status)
     {
         if (LinkSta == 0)
         {
-            uint16_t anlpar = ETH_ReadPHYRegister(phy_addr, PHY_ANLPAR);
-
-            /* 检查自协商是否完成（与官方 ETH_PHYLink 一致） */
-            if ((bcr & PHY_AutoNegotiation) && !(bsr & PHY_AutoNego_Complete) && (anlpar != 0))
-            {
-                return; /* 等待协商完成 */
-            }
-
-            /* 配置速率和双工（与官方 ETH_LinkUpCfg 一致） */
-            if (bcr & (1 << 13)) /* 100M */
-            {
-                ETH->MACCR &= ~(ETH_Speed_100M | ETH_Speed_1000M);
-                ETH->MACCR |= ETH_Speed_100M;
-            }
-            else
-            {
-                ETH->MACCR &= ~(ETH_Speed_100M | ETH_Speed_1000M);
-            }
-
-            if (bcr & (1 << 8)) /* Full duplex */
-            {
+            /* 内部 10M PHY：10Mbps，根据 BCR 判断双工 */
+            uint16_t bcr = ETH_ReadPHYRegister(phy_addr, PHY_BCR);
+            ETH->MACCR &= ~(ETH_Speed_100M | ETH_Speed_1000M);
+            if (bcr & (1 << 8))
                 ETH->MACCR |= ETH_Mode_FullDuplex;
-            }
             else
-            {
                 ETH->MACCR &= ~ETH_Mode_FullDuplex;
-            }
 
             LinkSta = 1;
-            printf("[ETH] Link UP (ANLPAR=0x%04X BSR=0x%04X)\r\n", anlpar, bsr);
-
-            /* 启动 ETH（与官方一致，仅在链路建立后调用） */
-            ETH_Start();
-
-            printf("[ETH] DMARDLAR=0x%08lX DMASR=0x%08lX DMAOMR=0x%08lX MACCR=0x%08lX\r\n",
-                   ETH->DMARDLAR, ETH->DMASR, ETH->DMAOMR, ETH->MACCR);
-            {
-                volatile uint32_t *d = (volatile uint32_t *)ETH->DMARDLAR;
-                printf("[ETH] RxDesc[0]: %08lX %08lX %08lX %08lX\r\n", d[0], d[1], d[2], d[3]);
-            }
+            printf("[ETH] Link UP (10M %s-duplex)\r\n",
+                   (bcr & (1 << 8)) ? "full" : "half");
         }
     }
     else
@@ -300,9 +218,6 @@ static void eth_check_link(void)
         if (LinkSta == 1)
         {
             LinkSta = 0;
-            ETH_MACTransmissionCmd(DISABLE);
-            ETH_FlushTransmitFIFO();
-            ETH_MACReceptionCmd(DISABLE);
             printf("[ETH] Link DOWN\r\n");
         }
     }
@@ -327,34 +242,29 @@ static void eth_get_mac_from_rom(uint8_t *mac)
 
 void eth_demo_init(void)
 {
-    uint32_t chip_id;
-
-    chip_id = DBGMCU_GetCHIPID();
-    printf("[ETH] ChipID: %08lX\r\n", chip_id);
-
     /* 获取 MAC 地址 */
     eth_get_mac_from_rom(MACAddr);
     printf("[ETH] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
            MACAddr[0], MACAddr[1], MACAddr[2],
            MACAddr[3], MACAddr[4], MACAddr[5]);
 
-    /* ETH 初始化（使用官方 SDK） */
+    /* ETH 初始化（内部 10M PHY） */
     eth_configuration(MACAddr);
 
-    /* 初始化 DMA 描述符链（使用官方 SDK） */
+    /* 初始化 DMA 描述符链 */
     ETH_DMATxDescChainInit(DMATxDscrTab, MACTxBuf, ETH_TXBUFNB);
     ETH_DMARxDescChainInit(DMARxDscrTab, MACRxBuf, ETH_RXBUFNB);
 
-    /* 注意：不在这里调用 ETH_Start()，等链路建立后再启动（与官方一致） */
+    /* 启动 ETH MAC */
+    ETH_Start();
 
     /* 使能 ETH 中断 */
     NVIC_EnableIRQ(ETH_IRQn);
     NVIC_SetPriority(ETH_IRQn, 0);
 
-    /* 等待 PHY 稳定后启动自协商 */
-    Delay_Ms(1000);
+    /* 启动自协商 */
     ETH_WritePHYRegister(phy_addr, PHY_BCR, PHY_AutoNegotiation | PHY_Restart_AutoNegotiation);
-    printf("[ETH] PHY initialized, auto-negotiation started\r\n");
+    printf("[ETH] 10M PHY initialized, auto-negotiation started\r\n");
 }
 
 void eth_demo_poll(void)

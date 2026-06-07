@@ -17,8 +17,7 @@ int main(void)
     uint8_t uid[CHIP_UID_LENGTH];
     uint8_t usb_rx_buf[64];
     uint16_t usb_rx_len;
-    dhcp_info_t net_info;
-    char ip_str[16];
+    uint8_t network_info_printed = 0;
 
     /* 初始化HAL */
     hal_init();
@@ -43,8 +42,8 @@ int main(void)
     printf("\r\n--- Ethernet ---\r\n");
     eth_demo_init();
 
-    /* 初始化 DHCP */
-    printf("\r\n--- DHCP ---\r\n");
+    /* 启动 DHCP 自动获取 IP */
+    printf("\r\n--- Network ---\r\n");
     dhcp_init();
 
     /* 初始化 USB CDC */
@@ -53,6 +52,10 @@ int main(void)
 
     printf("\r\n========================================\r\n");
 
+    printf("Network:    DHCP auto IP\r\n");
+    printf("UDP Echo:   port 7 after DHCP bound\r\n");
+    printf("========================================\r\n");
+
     /* 主循环 */
     while (1)
     {
@@ -60,33 +63,26 @@ int main(void)
         led_toggle(LED1);
         led_toggle(LED2);
 
-        /* 以太网轮询 */
+        /* 以太网轮询（链路状态 + 收发帧） */
         eth_demo_poll();
 
-        /* DHCP 处理 */
+        /* 网络处理（ARP 应答 + UDP Echo） */
         dhcp_poll();
 
-        /* 检查是否获取到 IP */
-        if (dhcp_get_state() == DHCP_STATE_BOUND)
+        if (!network_info_printed && dhcp_get_state() == DHCP_STATE_BOUND)
         {
-            if (dhcp_get_info(&net_info) == 0)
+            dhcp_info_t info;
+            if (dhcp_get_info(&info) == 0)
             {
-                dhcp_ip_to_str(net_info.ip, ip_str);
-                /* 只打印一次 */
-                static uint8_t printed = 0;
-                if (!printed)
-                {
-                    printf("\r\n=== Network Ready ===\r\n");
-                    printf("IP:      %s\r\n", ip_str);
-                    dhcp_ip_to_str(net_info.mask, ip_str);
-                    printf("Mask:    %s\r\n", ip_str);
-                    dhcp_ip_to_str(net_info.gateway, ip_str);
-                    printf("Gateway: %s\r\n", ip_str);
-                    dhcp_ip_to_str(net_info.dns, ip_str);
-                    printf("DNS:     %s\r\n", ip_str);
-                    printf("=====================\r\n\r\n");
-                    printed = 1;
-                }
+                char ip_str[16];
+
+                printf("\r\n--- DHCP Bound ---\r\n");
+                printf("IP:         "); dhcp_ip_to_str(info.ip, ip_str);      printf("%s\r\n", ip_str);
+                printf("Mask:       "); dhcp_ip_to_str(info.mask, ip_str);    printf("%s\r\n", ip_str);
+                printf("Gateway:    "); dhcp_ip_to_str(info.gateway, ip_str); printf("%s\r\n", ip_str);
+                printf("DNS:        "); dhcp_ip_to_str(info.dns, ip_str);     printf("%s\r\n", ip_str);
+                printf("------------------\r\n");
+                network_info_printed = 1;
             }
         }
 
