@@ -1,0 +1,40 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "ch32v307-debug",
+            "displayName": "CH32V307 Debug",
+            "description": "CH32V307 调试构建",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "toolchainFile": "${sourceDir}/toolchain-riscv.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "ch32v307-release",
+            "displayName": "CH32V307 Release",
+            "description": "CH32V307 发布构建",
+            "inherits": "ch32v307-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "ch32v307-debug"
+        },
+        {
+            "name": "release",
+            "configurePreset": "ch32v307-release"
+        }
+    ]
+}

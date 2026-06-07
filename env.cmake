@@ -1,14 +1,14 @@
 # ============================================================================
-# 环境配置文件
+# 环境配置文件（降级方案）
 #
-# 用户需要根据自己的环境修改以下配置：
-#   1. TOOLCHAIN_PATH - 工具链安装路径
+# 推荐方式：设置环境变量 RISCV_TOOLCHAIN_PATH，无需修改此文件
+#   Linux:   export RISCV_TOOLCHAIN_PATH=/path/to/toolchain/bin
+#   Windows: set RISCV_TOOLCHAIN_PATH=C:\path\to\toolchain\bin
 #
-# 其他CMake文件通过include此文件获取环境变量。
+# 当环境变量未设置时，此文件作为降级方案生效。
 # ============================================================================
 
-# 工具链路径（用户需要修改为自己的路径）
-# 示例: /home/user/MounRiver/Toolchain/RISC-V Embedded GCC/bin
+# 工具链路径（降级配置，仅在环境变量未设置时生效）
 set(TOOLCHAIN_PATH "/home/dennis/software/riscv-none-elf/bin")
 
 # 工具链前缀（通常不需要修改）

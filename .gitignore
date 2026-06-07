@@ -1,6 +1,9 @@
 # 构建输出
 build/
 
+# CMake用户预设（个人配置，不提交）
+CMakeUserPresets.json
+
 # IDE文件（保留.vscode配置）
 .idea/
 *.swp

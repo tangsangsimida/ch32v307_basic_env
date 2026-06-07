@@ -3,22 +3,21 @@
     "clangd.path": "/usr/bin/clangd",
     "clangd.arguments": [
         "--compile-commands-dir=${workspaceFolder}/build",
-        "--header-insertion=never",
-        "--query-driver=/home/dennis/software/riscv-none-elf/bin/*"
+        "--header-insertion=never"
+        // 按需添加: "--query-driver=<工具链路径>/*"
+        // clangd 不支持 ${env:VAR}，需手动填写或删除此行
     ],
 
     // C/C++扩展配置（备用）
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
 
-    // CMake配置
+    // CMake配置 —— 通过 CMakePresets.json 驱动，不在此处硬编码编译器
+    // cmake-tools 会自动识别 CMakePresets.json 中的 preset
     "cmake.buildDirectory": "${workspaceFolder}/build",
-    "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/toolchain-riscv.cmake"
-    ],
-    "cmake.environment": {
-        "PATH": "/home/dennis/software/riscv-none-elf/bin:${env:PATH}"
-    },
+    "cmake.defaultPreset": "ch32v307-debug",
+    "cmake.useCMakePresets": "always",
+    // 不设置 cmake.configureSettings / cmake.configureArgs，避免覆盖 preset
 
     // 文件关联
     "files.associations": {

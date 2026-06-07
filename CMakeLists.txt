@@ -22,9 +22,6 @@ endif()
 # 导出编译命令（用于clangd）
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-# 工具链前缀
-set(TOOLCHAIN_PREFIX "riscv-none-embed-")
-
 # 项目名称
 project(ch32v307_bare_metal_template C ASM)
 
@@ -62,10 +59,6 @@ endif()
 
 # 链接脚本
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/Ld/Link.ld)
-
-# 查找工具链工具（用于构建后命令）
-find_program(CMAKE_OBJCOPY ${TOOLCHAIN_PREFIX}objcopy)
-find_program(CMAKE_SIZE ${TOOLCHAIN_PREFIX}size)
 
 # 添加子目录
 add_subdirectory(lib)
