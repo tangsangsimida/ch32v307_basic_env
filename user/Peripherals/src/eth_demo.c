@@ -8,10 +8,10 @@
 
 #include "eth_demo.h"
 #include "eth_led.h"
+#include "debug_config.h"
 #include "ch32v30x.h"
 #include "ch32v30x_eth.h"
 #include "debug.h"
-#include <stdio.h>
 #include <string.h>
 
 /* ========================================================================
@@ -213,8 +213,8 @@ static void eth_check_link(void)
                 ETH->MACCR &= ~ETH_Mode_FullDuplex;
 
             LinkSta = 1;
-            printf("[ETH] Link UP (10M %s-duplex)\r\n",
-                   (bcr & (1 << 8)) ? "full" : "half");
+            ETH_DBG_INFO("Link UP (10M %s-duplex)",
+                         (bcr & (1 << 8)) ? "full" : "half");
         }
     }
     else
@@ -228,7 +228,7 @@ static void eth_check_link(void)
         if (LinkSta == 1)
         {
             LinkSta = 0;
-            printf("[ETH] Link DOWN\r\n");
+            ETH_DBG_WARN("Link DOWN");
         }
     }
 }
@@ -254,9 +254,9 @@ void eth_demo_init(void)
 {
     /* 获取 MAC 地址 */
     eth_get_mac_from_rom(MACAddr);
-    printf("[ETH] MAC: %02X:%02X:%02X:%02X:%02X:%02X\r\n",
-           MACAddr[0], MACAddr[1], MACAddr[2],
-           MACAddr[3], MACAddr[4], MACAddr[5]);
+    ETH_DBG_INFO("MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+                 MACAddr[0], MACAddr[1], MACAddr[2],
+                 MACAddr[3], MACAddr[4], MACAddr[5]);
 
     /* ETH 初始化（内部 10M PHY） */
     eth_configuration(MACAddr);
@@ -274,7 +274,7 @@ void eth_demo_init(void)
 
     /* 启动自协商 */
     ETH_WritePHYRegister(phy_addr, PHY_BCR, PHY_AutoNegotiation | PHY_Restart_AutoNegotiation);
-    printf("[ETH] 10M PHY initialized, auto-negotiation started\r\n");
+    ETH_DBG_INFO("10M PHY initialized, auto-negotiation started");
 }
 
 void eth_demo_poll(void)
@@ -292,9 +292,9 @@ void eth_demo_poll(void)
     if (LinkSta == 1 && ++diag_count >= 500)
     {
         diag_count = 0;
-        printf("[ETH] DMASR=0x%08lX RDesc.St=0x%08lX RX=%lu TX=%lu ERR=%lu\r\n",
-               ETH->DMASR, ((volatile uint32_t *)ETH->DMARDLAR)[0],
-               eth_rx_count, eth_tx_count, eth_err_count);
+        ETH_DBG_INFO("DMASR=0x%08lX RDesc.St=0x%08lX RX=%lu TX=%lu ERR=%lu",
+                     ETH->DMASR, ((volatile uint32_t *)ETH->DMARDLAR)[0],
+                     eth_rx_count, eth_tx_count, eth_err_count);
     }
 }
 

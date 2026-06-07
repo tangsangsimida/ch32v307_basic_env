@@ -14,12 +14,10 @@
 
 #include "net_protocols.h"
 #include "eth_demo.h"
+#include "debug_config.h"
 #include "ch32v30x.h"
 #include "debug.h"
-#include <stdio.h>
 #include <string.h>
-
-#define DHCP_DEBUG /* DHCP 调试输出 */
 
 /* ========================================================================
  * 协议常量
@@ -279,8 +277,8 @@ static void arp_process(const uint8_t *frame, uint16_t len)
     {
         /* 检查是否请求的是我们的 IP */
         uint32_t target_ip = ip_read_be(arp->tpa);
-        printf("[ARP] target=%08lX my=%08lX\r\n",
-               (unsigned long)target_ip, (unsigned long)my_ip);
+        NET_DBG_INFO("ARP req target=%08lX my=%08lX",
+                     (unsigned long)target_ip, (unsigned long)my_ip);
         if (target_ip != my_ip) return;
 
         /* 构造 ARP 应答 */
@@ -307,8 +305,9 @@ static void arp_process(const uint8_t *frame, uint16_t len)
 
         {
             uint32_t ret = eth_demo_send((uint8_t *)&reply, sizeof(reply));
-            printf("[ARP] TX=%lu DMASR=0x%08lX\r\n",
-                   (unsigned long)ret, (unsigned long)ETH->DMASR);
+            NET_DBG_INFO("ARP reply TX=%lu DMASR=0x%08lX",
+                         (unsigned long)ret, (unsigned long)ETH->DMASR);
+            (void)ret;
         }
     }
 }
@@ -402,9 +401,7 @@ static void dhcp_send_discover(void)
     len = (int)(opt - buf);
     udp_send(0xFFFFFFFF, UDP_PORT_BOOTPS, UDP_PORT_BOOTPC, buf, len);
 
-#ifdef DHCP_DEBUG
-    printf("[DHCP] DISCOVER sent\r\n");
-#endif
+    DHCP_DBG_INFO("DISCOVER sent");
 }
 
 static void dhcp_send_request(uint32_t offered_ip, uint32_t server_ip)
@@ -448,9 +445,7 @@ static void dhcp_send_request(uint32_t offered_ip, uint32_t server_ip)
     len = (int)(opt - buf);
     udp_send(0xFFFFFFFF, UDP_PORT_BOOTPS, UDP_PORT_BOOTPC, buf, len);
 
-#ifdef DHCP_DEBUG
-    printf("[DHCP] REQUEST sent\r\n");
-#endif
+    DHCP_DBG_INFO("REQUEST sent");
 }
 
 /* ========================================================================
@@ -492,8 +487,6 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
     switch (msg_type)
     {
     case DHCP_OFFER:
-        dhcp_ip_to_str(offered_ip, ip_str);
-        printf("[DHCP] OFFER: IP=%s", ip_str);
         /* 找到服务器 ID */
         opt = pkt->options;
         while (opt < data + len && *opt != OPT_END)
@@ -512,11 +505,15 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
         }
         if (server_ip == 0)
         {
-            printf(" without server id, ignored\r\n");
+            DHCP_DBG_WARN("OFFER: no server id, ignored");
             break;
         }
-        dhcp_ip_to_str(server_ip, ip_str);
-        printf(" from %s\r\n", ip_str);
+        {
+            char srv_str[16];
+            dhcp_ip_to_str(offered_ip, ip_str);
+            dhcp_ip_to_str(server_ip, srv_str);
+            DHCP_DBG_INFO("OFFER: IP=%s server=%s", ip_str, srv_str);
+        }
 
         dhcp_server = server_ip;
         dhcp_state = DHCP_STATE_REQUEST;
@@ -544,20 +541,19 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
         }
 
         dhcp_ip_to_str(my_ip, ip_str);
-        printf("[DHCP] ACK: IP=%s", ip_str);
+        DHCP_DBG_INFO("ACK: IP=%s", ip_str);
         dhcp_ip_to_str(my_mask, ip_str);
-        printf(" Mask=%s", ip_str);
+        DHCP_DBG_INFO("  Mask=%s", ip_str);
         dhcp_ip_to_str(my_gateway, ip_str);
-        printf(" GW=%s", ip_str);
+        DHCP_DBG_INFO("  GW=%s", ip_str);
         dhcp_ip_to_str(my_dns, ip_str);
-        printf(" DNS=%s", ip_str);
-        printf("\r\n");
+        DHCP_DBG_INFO("  DNS=%s", ip_str);
 
         dhcp_state = DHCP_STATE_BOUND;
         break;
 
     case DHCP_NAK:
-        printf("[DHCP] NAK received\r\n");
+        DHCP_DBG_WARN("NAK received");
         dhcp_state = DHCP_STATE_IDLE;
         break;
     }
@@ -617,7 +613,8 @@ static void icmp_process(uint8_t *frame, uint16_t len, ip_hdr_t *ip)
 
     ret = eth_demo_send(frame, sizeof(eth_hdr_t) + ip_total_len);
     dhcp_ip_to_str(src_ip, ip_str);
-    printf("[ICMP] Echo reply to %s TX=%lu\r\n", ip_str, (unsigned long)ret);
+    NET_DBG_INFO("ICMP echo reply to %s TX=%lu", ip_str, (unsigned long)ret);
+    (void)ret;
 }
 
 /* ========================================================================
@@ -650,7 +647,7 @@ static void udp_process(uint8_t *frame, uint16_t len, const ip_hdr_t *ip)
         if (udp_len > 8)
         {
             udp_send(src_ip, src_port, 7, payload, udp_len - 8);
-            printf("[ECHO] %d bytes echoed to port %d\r\n", udp_len - 8, src_port);
+            NET_DBG_INFO("UDP echo %d bytes to port %d", udp_len - 8, src_port);
         }
     }
 }
@@ -696,8 +693,8 @@ void dhcp_init(void)
     dhcp_tick = 0;
     my_ip = 0;
 
-    printf("[DHCP] Client initialized, MAC=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
-           my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+    DHCP_DBG_INFO("Client initialized, MAC=%02X:%02X:%02X:%02X:%02X:%02X",
+                  my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
 }
 
 /**
@@ -710,7 +707,7 @@ void dhcp_set_static_ip(uint32_t ip, uint32_t mask, uint32_t gw, uint32_t dns)
     my_gateway = gw;
     my_dns = dns;
     dhcp_state = DHCP_STATE_BOUND;
-    printf("[DHCP] Static IP set\r\n");
+    DHCP_DBG_INFO("Static IP set");
 }
 
 void dhcp_poll(void)
@@ -746,7 +743,7 @@ void dhcp_poll(void)
         dhcp_retry_count++;
         if (dhcp_retry_count > 10)
         {
-            printf("[DHCP] Timeout, no DHCP server found\r\n");
+            DHCP_DBG_ERR("Timeout, no DHCP server found");
             dhcp_state = DHCP_STATE_ERROR;
         }
         break;
@@ -755,7 +752,7 @@ void dhcp_poll(void)
         dhcp_retry_count++;
         if (dhcp_retry_count > 5)
         {
-            printf("[DHCP] Request timeout, retrying DISCOVER\r\n");
+            DHCP_DBG_WARN("Request timeout, retrying DISCOVER");
             dhcp_state = DHCP_STATE_DISCOVER;
             dhcp_retry_count = 0;
         }
