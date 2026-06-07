@@ -193,11 +193,14 @@ static void eth_configuration(uint8_t *mac_addr)
 static void eth_check_link(void)
 {
     uint16_t bsr;
+    static uint8_t link_down_count = 0;
 
+    (void)ETH_ReadPHYRegister(phy_addr, PHY_BSR);
     bsr = ETH_ReadPHYRegister(phy_addr, PHY_BSR);
 
     if (bsr & PHY_Linked_Status)
     {
+        link_down_count = 0;
         if (LinkSta == 0)
         {
             /* 内部 10M PHY：10Mbps，根据 BCR 判断双工 */
@@ -215,6 +218,12 @@ static void eth_check_link(void)
     }
     else
     {
+        if (link_down_count < 3)
+        {
+            link_down_count++;
+            return;
+        }
+
         if (LinkSta == 1)
         {
             LinkSta = 0;
@@ -285,16 +294,6 @@ void eth_demo_poll(void)
         printf("[ETH] DMASR=0x%08lX RDesc.St=0x%08lX RX=%lu TX=%lu ERR=%lu\r\n",
                ETH->DMASR, ((volatile uint32_t *)ETH->DMARDLAR)[0],
                eth_rx_count, eth_tx_count, eth_err_count);
-        /* 尝试读取帧 */
-        {
-            uint32_t rx_size = ETH_GetRxPktSize();
-            if (rx_size > 0)
-            {
-                uint8_t tmpbuf[64];
-                uint32_t result = ETH_HandleRxPkt(tmpbuf);
-                printf("[ETH] RX attempt: size=%lu result=0x%08lX\r\n", rx_size, result);
-            }
-        }
     }
 }
 

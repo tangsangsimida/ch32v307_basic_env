@@ -2,7 +2,7 @@
  * @file dhcp_client.c
  * @brief 最小化 DHCP 客户端实现
  *
- * 实现 ARP + IP + UDP + DHCP 协议栈。
+ * 实现 ARP + IP + ICMP + UDP + DHCP 协议栈。
  * 通过 eth_demo 的 send/recv 收发原始以太网帧。
  */
 
@@ -31,8 +31,13 @@
 
 /* IP */
 #define IP_VER_IHL          0x45
+#define IP_PROTO_ICMP       1
 #define IP_PROTO_UDP        17
 #define IP_TTL              128
+
+/* ICMP */
+#define ICMP_TYPE_ECHO_REPLY   0
+#define ICMP_TYPE_ECHO_REQUEST 8
 
 /* UDP */
 #define UDP_PORT_BOOTPC     68
@@ -187,19 +192,31 @@ static void ip_write_be(void *data, uint32_t ip)
     p[3] = (uint8_t)ip;
 }
 
+static void u16_write_be(void *data, uint16_t value)
+{
+    uint8_t *p = (uint8_t *)data;
+
+    p[0] = (uint8_t)(value >> 8);
+    p[1] = (uint8_t)value;
+}
+
 /* ========================================================================
  * 校验和计算
  * ======================================================================== */
-static uint16_t ip_checksum(const uint16_t *buf, int len)
+static uint16_t checksum16_be(const void *data, uint16_t len)
 {
+    const uint8_t *buf = (const uint8_t *)data;
     uint32_t sum = 0;
+
     while (len > 1)
     {
-        sum += *buf++;
+        sum += ((uint16_t)buf[0] << 8) | buf[1];
+        buf += 2;
         len -= 2;
     }
     if (len == 1)
-        sum += *(uint8_t *)buf;
+        sum += (uint16_t)buf[0] << 8;
+
     sum = (sum >> 16) + (sum & 0xFFFF);
     sum += (sum >> 16);
     return (uint16_t)~sum;
@@ -321,7 +338,7 @@ void udp_send(uint32_t dst_ip, uint16_t dst_port,
     pkt->ip.protocol = IP_PROTO_UDP;
     ip_write_be(&pkt->ip.src_ip, my_ip);
     ip_write_be(&pkt->ip.dst_ip, dst_ip);
-    pkt->ip.checksum = ip_checksum((uint16_t *)&pkt->ip, 20);
+    u16_write_be(&pkt->ip.checksum, checksum16_be(&pkt->ip, 20));
 
     /* UDP 头 */
     pkt->udp.src_port = __builtin_bswap16(src_port);
@@ -541,13 +558,82 @@ static void dhcp_process_reply(const uint8_t *data, uint16_t len)
 }
 
 /* ========================================================================
- * IP/UDP 接收处理
+ * IP/ICMP/UDP 接收处理
  * ======================================================================== */
-static void ip_process(const uint8_t *frame, uint16_t len)
+static void icmp_process(uint8_t *frame, uint16_t len, ip_hdr_t *ip)
+{
+    uint8_t *icmp;
+    uint16_t ip_hdr_len;
+    uint16_t ip_total_len;
+    uint16_t icmp_len;
+    uint32_t src_ip;
+    uint32_t dst_ip;
+    char ip_str[16];
+    uint32_t ret;
+
+    if ((ip->ver_ihl & 0x0F) != 5)
+        return;
+
+    ip_hdr_len = 20;
+    ip_total_len = __builtin_bswap16(ip->total_len);
+    if (ip_total_len < ip_hdr_len + 8 || len < sizeof(eth_hdr_t) + ip_total_len)
+        return;
+
+    src_ip = ip_read_be(&ip->src_ip);
+    dst_ip = ip_read_be(&ip->dst_ip);
+    if (dhcp_state != DHCP_STATE_BOUND || dst_ip != my_ip)
+        return;
+
+    icmp = frame + sizeof(eth_hdr_t) + ip_hdr_len;
+    icmp_len = ip_total_len - ip_hdr_len;
+    if (icmp[0] != ICMP_TYPE_ECHO_REQUEST || icmp[1] != 0)
+        return;
+
+    /* 以太网源/目的互换 */
+    {
+        uint8_t tmp_mac[6];
+        eth_hdr_t *eth = (eth_hdr_t *)frame;
+
+        memcpy(tmp_mac, eth->src, 6);
+        memcpy(eth->src, my_mac, 6);
+        memcpy(eth->dst, tmp_mac, 6);
+    }
+
+    ip_write_be(&ip->src_ip, my_ip);
+    ip_write_be(&ip->dst_ip, src_ip);
+    ip->ttl = IP_TTL;
+    u16_write_be(&ip->checksum, 0);
+    u16_write_be(&ip->checksum, checksum16_be(ip, ip_hdr_len));
+
+    icmp[0] = ICMP_TYPE_ECHO_REPLY;
+    u16_write_be(icmp + 2, 0);
+    u16_write_be(icmp + 2, checksum16_be(icmp, icmp_len));
+
+    ret = eth_demo_send(frame, sizeof(eth_hdr_t) + ip_total_len);
+    dhcp_ip_to_str(src_ip, ip_str);
+    printf("[ICMP] Echo reply to %s TX=%lu\r\n", ip_str, (unsigned long)ret);
+}
+
+static void ip_process(uint8_t *frame, uint16_t len)
 {
     const ip_hdr_t *ip = (const ip_hdr_t *)(frame + 14);
 
+    if (len < sizeof(eth_hdr_t) + 20)
+        return;
+
+    if ((ip->ver_ihl & 0xF0) != 0x40)
+        return;
+
+    if (ip->protocol == IP_PROTO_ICMP)
+    {
+        icmp_process(frame, len, (ip_hdr_t *)ip);
+        return;
+    }
+
     if (ip->protocol != IP_PROTO_UDP)
+        return;
+
+    if ((ip->ver_ihl & 0x0F) != 5)
         return;
 
     const udp_hdr_t *udp = (const udp_hdr_t *)(frame + 14 + 20);
@@ -556,6 +642,10 @@ static void ip_process(const uint8_t *frame, uint16_t len)
     uint16_t udp_len = __builtin_bswap16(udp->length);
     const uint8_t *payload = frame + 14 + 20 + 8;
     uint32_t src_ip = ip_read_be(&ip->src_ip);
+    uint32_t dst_ip = ip_read_be(&ip->dst_ip);
+
+    if (udp_len < 8 || len < sizeof(eth_hdr_t) + 20 + udp_len)
+        return;
 
     if (dst_port == UDP_PORT_BOOTPC)
     {
@@ -564,6 +654,9 @@ static void ip_process(const uint8_t *frame, uint16_t len)
     }
     else if (dst_port == 7)
     {
+        if (dhcp_state != DHCP_STATE_BOUND || dst_ip != my_ip)
+            return;
+
         /* UDP Echo: 原样回显数据到发送方 */
         if (udp_len > 8)
         {
